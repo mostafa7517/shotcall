@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ShotCall.API/ShotCall.API.csproj" />
+    <Project Path="src/ShotCall.Application/ShotCall.Application.csproj" />
+    <Project Path="src/ShotCall.Domain/ShotCall.Domain.csproj" />
+    <Project Path="src/ShotCall.Infrastructure/ShotCall.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ShotCall.Tests/ShotCall.Tests.csproj" />
+  </Folder>
+</Solution>

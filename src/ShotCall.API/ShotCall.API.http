@@ -1,0 +1,52 @@
+@ShotCall.API_HostAddress = https://localhost:7102
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjFkNTEzMTlkLTJhYTUtNDc3OS05ZDZmLTczZmI1YTk3MmI4MSIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6ImFrLmNvbnZlckBnbWFpbC5jb20iLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiTW9zdGFmYSBKYW1hbCIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IkFkbWluIiwiZXhwIjoxNzg5MzA2MzU4LCJpc3MiOiJTaG90Q2FsbCIsImF1ZCI6IlNob3RDYWxsQ2xpZW50In0.SSw-KEt4olsS4dn_ZW7Q6eh-Boms5jwYhSCutJmawcI
+@photographerToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6ImFhOTVjOWM4LWY4NzUtNDc4My05YTNlLTJiZjIyMDZjYmZkYiIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6ImphcGFuZXNlNzUxN0BnbWFpbC5jb20iLCJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiSmFwYW5lc2UgQWNjb3VudCIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlBob3RvZ3JhcGhlciIsImV4cCI6MTc4OTMwNjQ2MCwiaXNzIjoiU2hvdENhbGwiLCJhdWQiOiJTaG90Q2FsbENsaWVudCJ9.NCZ1k5rnMS1OMHnMTlcpvAkRU9BLd-5dO8-xH496p0k
+
+### Step 1: Check if the photographer account needs approval
+GET {{ShotCall.API_HostAddress}}/api/accounts?status=PendingApproval
+Authorization: Bearer {{adminToken}}
+
+### Step 2: Admin creates a match
+POST {{ShotCall.API_HostAddress}}/api/matches
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "title": "Smoke Test Match",
+  "category": "Football",
+  "matchDate": "2026-09-30T18:00:00",
+  "location": "Test Stadium",
+  "photographersNeeded": 1
+}
+
+### Step 3: Admin approves the photographer
+PUT {{ShotCall.API_HostAddress}}/api/accounts/aa95c9c8-f875-4783-9a3e-2bf2206cbfdb/approve
+Authorization: Bearer {{adminToken}}
+
+### Verify: check the photographer's current status
+GET {{ShotCall.API_HostAddress}}/api/accounts?status=Active
+Authorization: Bearer {{adminToken}}
+
+### Step 4: Photographer requests the match (use the matchId from Step 2's response)
+POST {{ShotCall.API_HostAddress}}/api/requests
+Content-Type: application/json
+Authorization: Bearer {{photographerToken}}
+
+{
+  "matchId": "1b943b72-18b9-4f19-91ba-7f210f10dc51"
+}
+### Get all matches to find the id
+GET {{ShotCall.API_HostAddress}}/api/matches
+
+### Step 5: Admin views pending requests
+GET {{ShotCall.API_HostAddress}}/api/requests?status=Pending
+Authorization: Bearer {{adminToken}}
+
+### Step 6: Admin accepts the request
+PUT {{ShotCall.API_HostAddress}}/api/requests/3f546133-78fc-4414-9c04-4baeb96d80d7/accept
+Authorization: Bearer {{adminToken}}
+
+### Step 7: Photographer checks their notifications
+GET {{ShotCall.API_HostAddress}}/api/notifications/my
+Authorization: Bearer {{photographerToken}}
+

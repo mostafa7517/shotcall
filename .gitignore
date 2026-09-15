@@ -1,0 +1,36 @@
+﻿# Build results
+bin/
+obj/
+out/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+
+# User-specific files
+appsettings.Development.json
+appsettings.Local.json
+
+# NuGet
+*.nupkg
+**/packages/*
+
+# Rider / VS Code
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test results
+TestResults/
+
+# Client (Node) - handled separately in client/.gitignore but excluded here too for safety
+client/node_modules/
+client/dist/
+
+# Root-level accidental node install (not part of the project)
+node_modules/
