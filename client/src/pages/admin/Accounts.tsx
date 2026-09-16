@@ -14,10 +14,10 @@ interface Account {
 }
 
 const statusColors: Record<string, { bg: string; text: string }> = {
-  PendingApproval: { bg: '#fff4e0', text: '#c67c00' },
-  Active: { bg: '#e8f6ee', text: '#1e8e5a' },
-  Rejected: { bg: '#fdeaea', text: '#c0392b' },
-  Disabled: { bg: '#eee', text: '#666' },
+  PendingApproval: { bg: 'var(--warning-bg)', text: 'var(--warning-text)' },
+  Active: { bg: 'var(--success-bg)', text: 'var(--success-text)' },
+  Rejected: { bg: 'var(--danger-bg)', text: 'var(--danger-text)' },
+  Disabled: { bg: '#eee', text: 'var(--text-muted)' },
 }
 
 export default function Accounts() {
@@ -56,6 +56,19 @@ export default function Accounts() {
     }
   }
 
+  async function handlePromote(id: string) {
+    if (!confirm('Promote this photographer to Admin? This cannot be undone from here.')) return
+    setActioningId(id)
+    try {
+      await apiFetch(`/api/accounts/${id}/promote`, { method: 'PUT' })
+      await loadAccounts()
+    } catch (err) {
+      alert(String(err))
+    } finally {
+      setActioningId(null)
+    }
+  }
+
   return (
     <AdminLayout>
       <h2 style={{ marginTop: 0, marginBottom: 20 }}>Accounts</h2>
@@ -65,14 +78,7 @@ export default function Accounts() {
           <button
             key={s}
             onClick={() => setFilter(s)}
-            style={{
-              padding: '6px 14px',
-              fontSize: 13,
-              background: filter === s ? '#111' : '#fff',
-              color: filter === s ? '#fff' : '#111',
-              border: '1px solid #ccc',
-              borderRadius: 6,
-            }}
+            className={filter === s ? 'tab-btn active' : 'tab-btn'}
           >
             {s}
           </button>
@@ -80,26 +86,24 @@ export default function Accounts() {
       </div>
 
       {loading && <p>Loading...</p>}
-      {error && <p style={{ color: '#c0392b' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--danger-text)' }}>{error}</p>}
 
       {!loading && !error && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {accounts.length === 0 && <p style={{ color: '#666' }}>No accounts with this status.</p>}
+          {accounts.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No accounts with this status.</p>}
 
           {accounts.map((a) => {
             const colors = statusColors[a.accountStatus] || statusColors.Disabled
             return (
-              <div key={a.id} style={{
+              <div key={a.id} className="card row-hover" style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                border: '1px solid #e5e5e5',
-                borderRadius: 12,
                 padding: '14px 16px',
               }}>
                 <div>
                   <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{a.fullName}</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 12, color: '#666' }}>
+                  <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
                     {a.email} · Reliability {a.reliabilityScore} · joined {new Date(a.createdAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -127,9 +131,14 @@ export default function Accounts() {
                   )}
 
                   {a.accountStatus === 'Active' && (
-                    <button onClick={() => handleAction(a.id, 'disable')} disabled={actioningId === a.id} style={{ padding: '5px 12px', fontSize: 12 }}>
-                      Disable
-                    </button>
+                    <>
+                      <button onClick={() => handleAction(a.id, 'disable')} disabled={actioningId === a.id} style={{ padding: '5px 12px', fontSize: 12 }}>
+                        Disable
+                      </button>
+                      <button onClick={() => handlePromote(a.id)} disabled={actioningId === a.id} className="primary" style={{ padding: '5px 12px', fontSize: 12 }}>
+                        Promote to Admin
+                      </button>
+                    </>
                   )}
 
                   {a.accountStatus === 'Disabled' && (

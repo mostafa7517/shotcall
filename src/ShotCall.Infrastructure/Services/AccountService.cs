@@ -88,6 +88,20 @@ public class AccountService : IAccountService
         return ToDto(user);
     }
 
+    public async Task<AccountDto?> PromoteToAdminAsync(Guid userId)
+    {
+        var user = await _db.Users.FindAsync(userId);
+        if (user is null) return null;
+        if (user.Role != UserRole.Photographer)
+            throw new InvalidOperationException("Only photographers can be promoted to admin.");
+        if (user.AccountStatus != AccountStatus.Active)
+            throw new InvalidOperationException("Only active accounts can be promoted.");
+
+        user.Role = UserRole.Admin;
+        await _db.SaveChangesAsync();
+
+        return ToDto(user);
+    }
     private static AccountDto ToDto(ApplicationUser u) => new()
     {
         Id = u.Id,

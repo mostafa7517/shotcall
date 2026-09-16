@@ -79,4 +79,17 @@ public class AccountsController : ApiControllerBase
             return BadRequest(new { error = ex.Message });
         }
     }
+    [HttpPut("{id:guid}/promote")]
+    public async Task<ActionResult<AccountDto>> PromoteToAdmin(Guid id)
+    {
+        try
+        {
+            var result = await _accountService.PromoteToAdminAsync(id);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }
