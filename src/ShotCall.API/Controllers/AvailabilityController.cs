@@ -7,7 +7,7 @@ namespace ShotCall.API.Controllers;
 
 [ApiController]
 [Route("api/availability")]
-[Authorize(Roles = "Photographer")]
+[Authorize(Roles = "Staff")]
 public class AvailabilityController : ApiControllerBase
 {
     private readonly IAvailabilityService _availabilityService;

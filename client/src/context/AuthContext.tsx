@@ -1,20 +1,28 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { setTokens, clearTokens } from '../api/client'
 
-interface User {
+export interface User {
   userId: string
   fullName: string
   email: string
-  role: 'Admin' | 'Photographer'
+  role: 'Admin' | 'Staff'
+  staffType: string | null
   accountStatus: 'PendingApproval' | 'Active' | 'Rejected' | 'Disabled'
+}
+
+interface LoginData extends Omit<User, 'staffType'> {
+  accessToken: string
+  refreshToken: string
+  staffType?: string | null
 }
 
 interface AuthContextValue {
   user: User | null
   isLoading: boolean
-  login: (data: { accessToken: string; refreshToken: string } & User) => void
+  login: (data: LoginData) => void
   logout: () => void
+  updateUser: (changes: Partial<User>) => void
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -27,7 +35,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem('user')
     if (stored) {
       try {
-        setUser(JSON.parse(stored))
+        const parsed = JSON.parse(stored)
+        if (parsed.role === 'Admin' || parsed.role === 'Staff') {
+          setUser({
+            userId: parsed.userId,
+            fullName: parsed.fullName,
+            email: parsed.email,
+            role: parsed.role,
+            staffType: parsed.staffType ?? null,
+            accountStatus: parsed.accountStatus,
+          })
+        } else {
+          // A session saved before roles were renamed: sign in again
+          clearTokens()
+        }
       } catch {
         clearTokens()
       }
@@ -35,26 +56,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false)
   }, [])
 
-  const login = (data: { accessToken: string; refreshToken: string } & User) => {
+  // Keep the saved copy in sync whenever the user changes
+  useEffect(() => {
+    if (user) localStorage.setItem('user', JSON.stringify(user))
+  }, [user])
+
+  const login = useCallback((data: LoginData) => {
     setTokens(data.accessToken, data.refreshToken)
-    const userData: User = {
+    setUser({
       userId: data.userId,
       fullName: data.fullName,
       email: data.email,
       role: data.role,
+      staffType: data.staffType ?? null,
       accountStatus: data.accountStatus,
-    }
-    localStorage.setItem('user', JSON.stringify(userData))
-    setUser(userData)
-  }
+    })
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     clearTokens()
     setUser(null)
-  }
+  }, [])
+
+  const updateUser = useCallback((changes: Partial<User>) => {
+    setUser((current) => (current ? { ...current, ...changes } : current))
+  }, [])
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

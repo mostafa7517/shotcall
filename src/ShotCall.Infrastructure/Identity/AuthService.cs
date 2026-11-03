@@ -52,15 +52,13 @@ public class AuthService : IAuthService
                 FullName = payload.Name ?? payload.Email,
                 Email = payload.Email,
                 ProfilePictureUrl = payload.Picture,
-                Role = isAdmin ? UserRole.Admin : UserRole.Photographer,
+                Role = isAdmin ? UserRole.Admin : UserRole.Staff,
                 AccountStatus = isAdmin ? AccountStatus.Active : AccountStatus.PendingApproval,
                 CreatedAt = DateTime.UtcNow
             };
 
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
-
-            // TODO: notify all admins about the new pending account once notification service is wired in here
         }
 
         if (user.AccountStatus is AccountStatus.Rejected or AccountStatus.Disabled)
@@ -109,6 +107,7 @@ public class AuthService : IAuthService
             FullName = user.FullName,
             Email = user.Email,
             Role = user.Role.ToString(),
+            StaffType = user.StaffType?.ToString(),
             AccountStatus = user.AccountStatus.ToString()
         };
     }

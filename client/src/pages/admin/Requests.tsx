@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../../api/client'
 import AdminLayout from '../../components/AdminLayout'
+import { RoleBadge } from '../../components/RoleIcon'
 
 interface MatchRequest {
   id: string
@@ -8,6 +9,7 @@ interface MatchRequest {
   matchTitle: string
   photographerId: string
   photographerName: string
+  staffType: string
   status: string
   requestedAt: string
 }
@@ -36,7 +38,7 @@ export default function Requests() {
     loadRequests()
   }, [filter])
 
-  async function handleAction(id: string, action: 'accept' | 'reject') {
+  async function handleAction(id: string, action: 'accept' | 'reject' | 'revoke') {
     setActioningId(id)
     try {
       await apiFetch(`/api/requests/${id}/${action}`, { method: 'PUT' })
@@ -53,7 +55,7 @@ export default function Requests() {
       <h2 style={{ marginTop: 0, marginBottom: 20 }}>Requests</h2>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {['Pending', 'Accepted', 'Rejected'].map((s) => (
+        {['Pending', 'Invited', 'Accepted', 'Rejected', 'Declined'].map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}
@@ -88,7 +90,10 @@ export default function Requests() {
               padding: '14px 16px',
             }}>
               <div>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{r.photographerName}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{r.photographerName}</p>
+                  <RoleBadge type={r.staffType} />
+                </div>
                 <p style={{ margin: '4px 0 0', fontSize: 12, color: '#666' }}>
                   {r.matchTitle} · requested {new Date(r.requestedAt).toLocaleDateString()}
                 </p>
@@ -109,6 +114,17 @@ export default function Requests() {
                     style={{ padding: '5px 12px', fontSize: 12 }}
                   >
                     Reject
+                  </button>
+                </div>
+              ) : filter === 'Invited' ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: '#666' }}>waiting for confirmation</span>
+                  <button
+                    onClick={() => handleAction(r.id, 'revoke')}
+                    disabled={actioningId === r.id}
+                    style={{ padding: '5px 12px', fontSize: 12 }}
+                  >
+                    Cancel invitation
                   </button>
                 </div>
               ) : (

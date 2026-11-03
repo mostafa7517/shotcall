@@ -64,6 +64,9 @@ namespace ShotCall.Infrastructure.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("StaffType")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
@@ -174,6 +177,13 @@ namespace ShotCall.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<string>("HostName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<bool>("IsEvent")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Location")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -181,9 +191,6 @@ namespace ShotCall.Infrastructure.Migrations
 
                     b.Property<DateTime>("MatchDate")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("PhotographersNeeded")
-                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("RequestDeadline")
                         .HasColumnType("timestamp with time zone");
@@ -283,6 +290,9 @@ namespace ShotCall.Infrastructure.Migrations
                     b.Property<DateTime?>("RespondedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("StaffType")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -294,6 +304,29 @@ namespace ShotCall.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("MatchRequests");
+                });
+
+            modelBuilder.Entity("ShotCall.Domain.Entities.MatchSlot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Needed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StaffType")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MatchId", "StaffType")
+                        .IsUnique();
+
+                    b.ToTable("MatchSlots");
                 });
 
             modelBuilder.Entity("ShotCall.Domain.Entities.Notification", b =>
@@ -401,6 +434,9 @@ namespace ShotCall.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StaffType")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -514,6 +550,17 @@ namespace ShotCall.Infrastructure.Migrations
                     b.Navigation("Photographer");
                 });
 
+            modelBuilder.Entity("ShotCall.Domain.Entities.MatchSlot", b =>
+                {
+                    b.HasOne("ShotCall.Domain.Entities.Match", "Match")
+                        .WithMany("Slots")
+                        .HasForeignKey("MatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Match");
+                });
+
             modelBuilder.Entity("ShotCall.Domain.Entities.Notification", b =>
                 {
                     b.HasOne("ShotCall.Domain.Entities.ApplicationUser", "User")
@@ -588,6 +635,8 @@ namespace ShotCall.Infrastructure.Migrations
                     b.Navigation("Photos");
 
                     b.Navigation("Requests");
+
+                    b.Navigation("Slots");
 
                     b.Navigation("WaitingList");
                 });

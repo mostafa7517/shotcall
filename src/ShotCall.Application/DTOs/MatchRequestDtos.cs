@@ -1,12 +1,15 @@
-﻿namespace ShotCall.Application.DTOs;
+namespace ShotCall.Application.DTOs;
 
 public class MatchRequestDto
 {
     public Guid Id { get; set; }
     public Guid MatchId { get; set; }
     public string MatchTitle { get; set; } = string.Empty;
+    public DateTime MatchDate { get; set; }
+    public string MatchLocation { get; set; } = string.Empty;
     public Guid PhotographerId { get; set; }
     public string PhotographerName { get; set; } = string.Empty;
+    public string StaffType { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public DateTime RequestedAt { get; set; }
     public DateTime? RespondedAt { get; set; }

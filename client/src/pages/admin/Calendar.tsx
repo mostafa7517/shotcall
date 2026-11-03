@@ -6,8 +6,8 @@ interface Match {
   id: string
   title: string
   matchDate: string
-  acceptedCount: number
-  photographersNeeded: number
+  acceptedTotal: number
+  neededTotal: number
   status: string
 }
 

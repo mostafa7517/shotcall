@@ -70,9 +70,14 @@ public class GmailEmailService : IEmailService
 
     private static string BuildRawMessage(string toEmail, string subject, string bodyHtml)
     {
+        // Header values can't contain line breaks, and non-ASCII subjects have to be encoded (RFC 2047)
+        var safeTo = toEmail.Replace("\r", "").Replace("\n", "");
+        var encodedSubject = "=?UTF-8?B?" + Convert.ToBase64String(Encoding.UTF8.GetBytes(subject)) + "?=";
+
         var mime =
-            $"To: {toEmail}\r\n" +
-            $"Subject: {subject}\r\n" +
+            $"To: {safeTo}\r\n" +
+            $"Subject: {encodedSubject}\r\n" +
+            "MIME-Version: 1.0\r\n" +
             "Content-Type: text/html; charset=utf-8\r\n\r\n" +
             bodyHtml;
 

@@ -1,6 +1,8 @@
-﻿import type { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { staffTypeLabel } from '../constants/staffTypes'
+import { RoleIcon } from './RoleIcon'
 import NotificationBell from './NotificationBell'
 
 const navItems = [
@@ -9,7 +11,7 @@ const navItems = [
   { path: '/profile', label: 'Profile', icon: '\ud83d\udc64' },
 ]
 
-export default function PhotographerLayout({ children }: { children: ReactNode }) {
+export default function StaffLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const location = useLocation()
 
@@ -60,7 +62,17 @@ export default function PhotographerLayout({ children }: { children: ReactNode }
         })}
 
         <div style={{ marginTop: 'auto', paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{user?.fullName}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <RoleIcon type={user?.staffType} size={34} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.fullName}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {staffTypeLabel(user?.staffType)}
+              </div>
+            </div>
+          </div>
           <button onClick={logout} style={{ width: '100%' }}>Log out</button>
         </div>
       </div>
@@ -69,6 +81,22 @@ export default function PhotographerLayout({ children }: { children: ReactNode }
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
           <NotificationBell />
         </div>
+
+        {!user?.staffType && (
+          <div className="card" style={{
+            padding: '12px 16px',
+            marginBottom: 20,
+            background: 'var(--warning-bg)',
+            border: 'none',
+          }}>
+            <span style={{ fontSize: 13, color: 'var(--warning-text)' }}>
+              Choose your role in{' '}
+              <Link to="/profile" style={{ fontWeight: 600 }}>Profile</Link>{' '}
+              to start requesting matches.
+            </span>
+          </div>
+        )}
+
         {children}
       </div>
     </div>

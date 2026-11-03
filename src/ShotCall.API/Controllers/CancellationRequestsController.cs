@@ -26,7 +26,7 @@ public class CancellationRequestsController : ApiControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Photographer")]
+    [Authorize(Roles = "Staff")]
     public async Task<ActionResult<CancellationRequestDto>> Create([FromBody] CreateCancellationRequestDto request)
     {
         try

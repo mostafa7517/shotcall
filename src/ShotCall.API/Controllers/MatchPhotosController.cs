@@ -22,7 +22,7 @@ public class MatchPhotosController : ApiControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Photographer")]
+    [Authorize(Roles = "Staff")]
     public async Task<ActionResult<MatchPhotoDto>> Create(Guid matchId, [FromBody] CreateMatchPhotoDto request)
     {
         try

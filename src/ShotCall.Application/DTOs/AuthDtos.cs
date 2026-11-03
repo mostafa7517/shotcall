@@ -18,5 +18,6 @@ public class AuthResponseDto
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
+    public string? StaffType { get; set; }
     public string AccountStatus { get; set; } = string.Empty;
 }

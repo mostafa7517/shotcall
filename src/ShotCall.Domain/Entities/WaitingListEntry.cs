@@ -1,4 +1,6 @@
-﻿namespace ShotCall.Domain.Entities;
+﻿using ShotCall.Domain.Enums;
+
+namespace ShotCall.Domain.Entities;
 
 public class WaitingListEntry
 {
@@ -9,6 +11,8 @@ public class WaitingListEntry
 
     public Guid PhotographerId { get; set; }
     public ApplicationUser Photographer { get; set; } = null!;
+
+    public StaffType StaffType { get; set; }
 
     public int Position { get; set; }
 

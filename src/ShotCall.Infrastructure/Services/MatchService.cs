@@ -20,7 +20,10 @@ public class MatchService : IMatchService
 
     public async Task<List<MatchDto>> GetAllAsync(MatchFilter filter)
     {
-        var query = _db.Matches.Include(m => m.Requests).AsQueryable();
+        var query = _db.Matches
+            .Include(m => m.Slots)
+            .Include(m => m.Requests)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filter.Category))
             query = query.Where(m => m.Category == filter.Category);
@@ -29,30 +32,41 @@ public class MatchService : IMatchService
             Enum.TryParse<MatchStatus>(filter.Status, true, out var status))
             query = query.Where(m => m.Status == status);
 
+        if (!string.IsNullOrWhiteSpace(filter.StaffType) &&
+            Enum.TryParse<StaffType>(filter.StaffType, true, out var staffType))
+            query = query.Where(m => m.Slots.Any(s => s.StaffType == staffType && s.Needed > 0));
+
         var matches = await query.OrderBy(m => m.MatchDate).ToListAsync();
         return matches.Select(ToDto).ToList();
     }
 
     public async Task<MatchDto?> GetByIdAsync(Guid id)
     {
-        var match = await _db.Matches.Include(m => m.Requests)
+        var match = await _db.Matches
+            .Include(m => m.Slots)
+            .Include(m => m.Requests)
             .FirstOrDefaultAsync(m => m.Id == id);
+
         return match is null ? null : ToDto(match);
     }
 
     public async Task<MatchDto> CreateAsync(CreateMatchRequest request, Guid adminId)
     {
+        var slots = ParseSlots(request.Slots);
+
         var match = new Match
         {
             Id = Guid.NewGuid(),
             Title = request.Title,
-            TeamA = request.TeamA,
-            TeamB = request.TeamB,
-            Category = request.Category,
+            // An event has no two teams; it has an MC / host instead
+            TeamA = request.IsEvent ? null : Clean(request.TeamA),
+            TeamB = request.IsEvent ? null : Clean(request.TeamB),
+            Category = NormalizeCategory(request.Category),
+            IsEvent = request.IsEvent,
+            HostName = request.IsEvent ? Clean(request.HostName) : null,
             MatchDate = DateTime.SpecifyKind(request.MatchDate, DateTimeKind.Utc),
             Location = request.Location,
             Description = request.Description,
-            PhotographersNeeded = request.PhotographersNeeded,
             RequestDeadline = request.RequestDeadline.HasValue
                 ? DateTime.SpecifyKind(request.RequestDeadline.Value, DateTimeKind.Utc)
                 : null,
@@ -60,19 +74,33 @@ public class MatchService : IMatchService
             CreatedByAdminId = adminId
         };
 
+        foreach (var slot in slots)
+        {
+            match.Slots.Add(new MatchSlot
+            {
+                Id = Guid.NewGuid(),
+                StaffType = slot.Type,
+                Needed = slot.Needed
+            });
+        }
+
         _db.Matches.Add(match);
         await _db.SaveChangesAsync();
 
-        // Broadcast: notify every active photographer that a new match is available
-        var activePhotographerIds = await _db.Users
-            .Where(u => u.Role == UserRole.Photographer && u.AccountStatus == AccountStatus.Active)
+        // Notify active staff whose role this match is asking for
+        var neededTypes = match.Slots.Select(s => (StaffType?)s.StaffType).ToList();
+
+        var recipientIds = await _db.Users
+            .Where(u => u.Role == UserRole.Staff
+                     && u.AccountStatus == AccountStatus.Active
+                     && neededTypes.Contains(u.StaffType))
             .Select(u => u.Id)
             .ToListAsync();
 
-        foreach (var photographerId in activePhotographerIds)
+        foreach (var userId in recipientIds)
         {
-            await _notificationService.CreateAsync(photographerId, NotificationType.NewMatch,
-                $"A new match \"{match.Title}\" was added on {match.MatchDate:MMM d} at {match.Location}.");
+            await _notificationService.CreateAsync(userId, NotificationType.NewMatch,
+                $"A new {(match.IsEvent ? "event" : "match")} \"{match.Title}\" was added on {match.MatchDate:MMM d} at {match.Location}.");
         }
 
         return ToDto(match);
@@ -80,38 +108,93 @@ public class MatchService : IMatchService
 
     public async Task<MatchDto?> UpdateAsync(Guid id, UpdateMatchRequest request)
     {
-        var match = await _db.Matches.Include(m => m.Requests)
+        var match = await _db.Matches
+            .Include(m => m.Slots)
+            .Include(m => m.Requests)
             .FirstOrDefaultAsync(m => m.Id == id);
         if (match is null) return null;
 
+        var newSlots = ParseSlots(request.Slots);
+
+        // A role can't go below the people already accepted for it, and can't be removed while it has accepted people
+        foreach (var slot in newSlots)
+        {
+            var taken = match.ReservedCountFor(slot.Type);
+            if (slot.Needed < taken)
+                throw new InvalidOperationException(
+                    $"{slot.Type}: {taken} already accepted or invited, so the needed number can't be lower than that.");
+        }
+
+        foreach (var existing in match.Slots)
+        {
+            if (newSlots.All(s => s.Type != existing.StaffType) && match.ReservedCountFor(existing.StaffType) > 0)
+                throw new InvalidOperationException(
+                    $"{existing.StaffType} can't be removed because people are already accepted or invited for it.");
+        }
+
         match.Title = request.Title;
-        match.TeamA = request.TeamA;
-        match.TeamB = request.TeamB;
-        match.Category = request.Category;
+        match.TeamA = request.IsEvent ? null : Clean(request.TeamA);
+        match.TeamB = request.IsEvent ? null : Clean(request.TeamB);
+        match.Category = NormalizeCategory(request.Category);
+        match.IsEvent = request.IsEvent;
+        match.HostName = request.IsEvent ? Clean(request.HostName) : null;
         match.MatchDate = DateTime.SpecifyKind(request.MatchDate, DateTimeKind.Utc);
         match.Location = request.Location;
         match.Description = request.Description;
-        match.PhotographersNeeded = request.PhotographersNeeded;
         match.RequestDeadline = request.RequestDeadline.HasValue
             ? DateTime.SpecifyKind(request.RequestDeadline.Value, DateTimeKind.Utc)
             : null;
 
+        // Sync the role slots
+        var wanted = newSlots.ToDictionary(s => s.Type, s => s.Needed);
+
+        foreach (var existing in match.Slots.ToList())
+        {
+            if (wanted.TryGetValue(existing.StaffType, out var needed))
+                existing.Needed = needed;
+            else
+                _db.MatchSlots.Remove(existing);
+        }
+
+        foreach (var (type, needed) in wanted)
+        {
+            if (match.Slots.All(s => s.StaffType != type))
+            {
+                _db.MatchSlots.Add(new MatchSlot
+                {
+                    Id = Guid.NewGuid(),
+                    MatchId = match.Id,
+                    StaffType = type,
+                    Needed = needed
+                });
+            }
+        }
+
+        // The match is closed only when every wanted role is full
+        var allFilled = wanted.All(w => match.ReservedCountFor(w.Key) >= w.Value);
+        match.Status = allFilled ? MatchStatus.Closed : MatchStatus.Open;
+
         await _db.SaveChangesAsync();
 
-        // Notify photographers who have an active (pending or accepted) request on this match
-        var involvedPhotographerIds = match.Requests
-            .Where(r => r.Status is RequestStatus.Pending or RequestStatus.Accepted)
+        // Notify staff who have an active (pending or accepted) request on this match
+        var involvedIds = match.Requests
+            .Where(r => r.Status is RequestStatus.Pending or RequestStatus.Accepted or RequestStatus.Invited)
             .Select(r => r.PhotographerId)
             .Distinct()
             .ToList();
 
-        foreach (var photographerId in involvedPhotographerIds)
+        foreach (var userId in involvedIds)
         {
-            await _notificationService.CreateAsync(photographerId, NotificationType.MatchUpdated,
-        $"\"{match.Title}\" was updated. New date: {match.MatchDate:MMM d, h:mm tt}, location: {match.Location}.");
+            await _notificationService.CreateAsync(userId, NotificationType.MatchUpdated,
+                $"\"{match.Title}\" was updated. New date: {match.MatchDate:MMM d, h:mm tt}, location: {match.Location}.");
         }
 
-        return ToDto(match);
+        var refreshed = await _db.Matches
+            .Include(m => m.Slots)
+            .Include(m => m.Requests)
+            .FirstAsync(m => m.Id == id);
+
+        return ToDto(refreshed);
     }
 
     public async Task<bool> DeleteAsync(Guid id)
@@ -120,8 +203,8 @@ public class MatchService : IMatchService
             .FirstOrDefaultAsync(m => m.Id == id);
         if (match is null) return false;
 
-        var involvedPhotographerIds = match.Requests
-            .Where(r => r.Status is RequestStatus.Pending or RequestStatus.Accepted)
+        var involvedIds = match.Requests
+            .Where(r => r.Status is RequestStatus.Pending or RequestStatus.Accepted or RequestStatus.Invited)
             .Select(r => r.PhotographerId)
             .Distinct()
             .ToList();
@@ -131,28 +214,88 @@ public class MatchService : IMatchService
         _db.Matches.Remove(match);
         await _db.SaveChangesAsync();
 
-        foreach (var photographerId in involvedPhotographerIds)
+        foreach (var userId in involvedIds)
         {
-            await _notificationService.CreateAsync(photographerId, NotificationType.MatchCancelled,
-        $"\"{matchTitle}\" was cancelled by the admin.");
+            await _notificationService.CreateAsync(userId, NotificationType.MatchCancelled,
+                $"\"{matchTitle}\" was cancelled by the admin.");
         }
 
         return true;
     }
 
-    private static MatchDto ToDto(Match m) => new()
+    // The category is free text (a sport or an event type), so it is cleaned and checked here
+    private static string NormalizeCategory(string? category)
     {
-        Id = m.Id,
-        Title = m.Title,
-        TeamA = m.TeamA,
-        TeamB = m.TeamB,
-        Category = m.Category,
-        MatchDate = m.MatchDate,
-        Location = m.Location,
-        Description = m.Description,
-        PhotographersNeeded = m.PhotographersNeeded,
-        AcceptedCount = m.Requests.Count(r => r.Status == RequestStatus.Accepted),
-        RequestDeadline = m.RequestDeadline,
-        Status = m.Status.ToString()
-    };
+        var value = (category ?? string.Empty).Trim();
+
+        if (value.Length == 0)
+            throw new InvalidOperationException("Category is required (a sport or an event type).");
+        if (value.Length > 50)
+            throw new InvalidOperationException("Category can't be longer than 50 characters.");
+
+        return value;
+    }
+
+    private static string? Clean(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    private static List<(StaffType Type, int Needed)> ParseSlots(List<MatchSlotInput>? input)
+    {
+        var result = new List<(StaffType Type, int Needed)>();
+
+        foreach (var item in input ?? new List<MatchSlotInput>())
+        {
+            if (item.Needed <= 0) continue; // a role with 0 people simply isn't requested
+
+            if (!Enum.TryParse<StaffType>(item.StaffType, true, out var type) || !Enum.IsDefined(type))
+                throw new InvalidOperationException($"Unknown role type: {item.StaffType}");
+
+            if (result.Any(r => r.Type == type))
+                throw new InvalidOperationException($"{type} is listed more than once.");
+
+            result.Add((type, item.Needed));
+        }
+
+        if (result.Count == 0)
+            throw new InvalidOperationException("The match needs at least one role with one or more people.");
+
+        return result;
+    }
+
+    private static MatchDto ToDto(Match m)
+    {
+        var slots = m.Slots
+            .OrderBy(s => s.StaffType)
+            .Select(s => new MatchSlotDto
+            {
+                StaffType = s.StaffType.ToString(),
+                Needed = s.Needed,
+                Accepted = m.AcceptedCountFor(s.StaffType),
+                Invited = m.InvitedCountFor(s.StaffType)
+            })
+            .ToList();
+
+        return new MatchDto
+        {
+            Id = m.Id,
+            Title = m.Title,
+            TeamA = m.TeamA,
+            TeamB = m.TeamB,
+            Category = m.Category,
+            IsEvent = m.IsEvent,
+            HostName = m.HostName,
+            MatchDate = m.MatchDate,
+            Location = m.Location,
+            Description = m.Description,
+            Slots = slots,
+            NeededTotal = slots.Sum(s => s.Needed),
+            AcceptedTotal = slots.Sum(s => s.Accepted),
+            InvitedTotal = slots.Sum(s => s.Invited),
+            RequestDeadline = m.RequestDeadline,
+            Status = m.Status.ToString()
+        };
+    }
 }

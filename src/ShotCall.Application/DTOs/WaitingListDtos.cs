@@ -6,6 +6,7 @@ public class WaitingListEntryDto
     public Guid MatchId { get; set; }
     public Guid PhotographerId { get; set; }
     public string PhotographerName { get; set; } = string.Empty;
+    public string StaffType { get; set; } = string.Empty;
     public int Position { get; set; }
     public DateTime CreatedAt { get; set; }
 }

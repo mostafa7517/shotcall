@@ -22,7 +22,7 @@ public class WaitingListController : ApiControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Photographer")]
+    [Authorize(Roles = "Staff")]
     public async Task<ActionResult<WaitingListEntryDto>> Join(Guid matchId)
     {
         try

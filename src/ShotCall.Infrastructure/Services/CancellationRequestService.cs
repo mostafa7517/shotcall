@@ -106,24 +106,50 @@ public class CancellationRequestService : ICancellationRequestService
             });
         }
 
-        var next = match.WaitingList.OrderBy(w => w.Position).FirstOrDefault();
+        // Promote the next person waiting for the SAME role, if any
+        var next = match.WaitingList
+            .Where(w => w.StaffType == matchRequest.StaffType)
+            .OrderBy(w => w.Position)
+            .FirstOrDefault();
+
         Guid? promotedPhotographerId = null;
         if (next is not null)
         {
-            _db.MatchRequests.Add(new MatchRequest
+            // One request row per (match, person): reuse an old withdrawn/rejected row if there is one
+            var oldRow = await _db.MatchRequests
+                .Include(r => r.CancellationRequest)
+                .FirstOrDefaultAsync(r => r.MatchId == match.Id && r.PhotographerId == next.PhotographerId);
+
+            if (oldRow is not null)
             {
-                Id = Guid.NewGuid(),
-                MatchId = match.Id,
-                PhotographerId = next.PhotographerId,
-                Status = RequestStatus.Accepted,
-                RequestedAt = next.CreatedAt,
-                RespondedAt = DateTime.UtcNow
-            });
+                if (oldRow.CancellationRequest is not null)
+                    _db.CancellationRequests.Remove(oldRow.CancellationRequest);
+
+                oldRow.StaffType = next.StaffType;
+                oldRow.Status = RequestStatus.Accepted;
+                oldRow.RequestedAt = next.CreatedAt;
+                oldRow.RespondedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _db.MatchRequests.Add(new MatchRequest
+                {
+                    Id = Guid.NewGuid(),
+                    MatchId = match.Id,
+                    PhotographerId = next.PhotographerId,
+                    StaffType = next.StaffType,
+                    Status = RequestStatus.Accepted,
+                    RequestedAt = next.CreatedAt,
+                    RespondedAt = DateTime.UtcNow
+                });
+            }
+
             _db.WaitingListEntries.Remove(next);
             promotedPhotographerId = next.PhotographerId;
         }
         else
         {
+            // A spot was freed and nobody is waiting for it - reopen the match
             match.Status = MatchStatus.Open;
         }
 

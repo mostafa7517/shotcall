@@ -1,8 +1,8 @@
-﻿import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 interface Props {
-  allowedRoles?: ('Admin' | 'Photographer')[]
+  allowedRoles?: ('Admin' | 'Staff')[]
 }
 
 export default function ProtectedRoute({ allowedRoles }: Props) {

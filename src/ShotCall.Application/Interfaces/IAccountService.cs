@@ -10,4 +10,5 @@ public interface IAccountService
     Task<AccountDto?> DisableAsync(Guid userId);
     Task<AccountDto?> EnableAsync(Guid userId);
     Task<AccountDto?> PromoteToAdminAsync(Guid userId);
+    Task<AccountDto?> SetStaffTypeAsync(Guid userId, string staffType);
 }

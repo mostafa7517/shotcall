@@ -1,5 +1,6 @@
-﻿namespace ShotCall.Domain.Enums;
+namespace ShotCall.Domain.Enums;
 
+// New values are only ever added at the END: the numbers are stored in the database.
 public enum NotificationType
 {
     NewMatch,
@@ -12,5 +13,9 @@ public enum NotificationType
     CancellationDecision,
     NewComment,
     MatchUpdated,
-    MatchCancelled
+    MatchCancelled,
+    MatchInvitation,
+    InvitationConfirmed,
+    InvitationDeclined,
+    InvitationRevoked
 }

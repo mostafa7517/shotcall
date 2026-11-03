@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../../api/client'
 import AdminLayout from '../../components/AdminLayout'
+import { RoleBadge } from '../../components/RoleIcon'
+import { STAFF_TYPES } from '../../constants/staffTypes'
 
 interface Account {
   id: string
@@ -8,6 +10,7 @@ interface Account {
   email: string
   phoneNumber: string | null
   role: string
+  staffType: string | null
   accountStatus: string
   reliabilityScore: number
   createdAt: string
@@ -57,10 +60,26 @@ export default function Accounts() {
   }
 
   async function handlePromote(id: string) {
-    if (!confirm('Promote this photographer to Admin? This cannot be undone from here.')) return
+    if (!confirm('Promote this person to Admin? This cannot be undone from here.')) return
     setActioningId(id)
     try {
       await apiFetch(`/api/accounts/${id}/promote`, { method: 'PUT' })
+      await loadAccounts()
+    } catch (err) {
+      alert(String(err))
+    } finally {
+      setActioningId(null)
+    }
+  }
+
+  async function handleSetStaffType(id: string, staffType: string) {
+    if (!staffType) return
+    setActioningId(id)
+    try {
+      await apiFetch(`/api/accounts/${id}/staff-type`, {
+        method: 'PUT',
+        body: JSON.stringify({ staffType }),
+      })
       await loadAccounts()
     } catch (err) {
       alert(String(err))
@@ -94,21 +113,39 @@ export default function Accounts() {
 
           {accounts.map((a) => {
             const colors = statusColors[a.accountStatus] || statusColors.Disabled
+            const busy = actioningId === a.id
             return (
               <div key={a.id} className="card row-hover" style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '14px 16px',
+                gap: 12,
               }}>
                 <div>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{a.fullName}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{a.fullName}</p>
+                    <RoleBadge type={a.staffType} />
+                  </div>
                   <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
                     {a.email} · Reliability {a.reliabilityScore} · joined {new Date(a.createdAt).toLocaleDateString()}
                   </p>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <select
+                    value={a.staffType ?? ''}
+                    onChange={(e) => handleSetStaffType(a.id, e.target.value)}
+                    disabled={busy}
+                    title="Change this person's role"
+                    style={{ padding: '4px 8px', fontSize: 12 }}
+                  >
+                    {!a.staffType && <option value="">Set role…</option>}
+                    {STAFF_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+
                   <span style={{
                     fontSize: 12,
                     padding: '4px 10px',
@@ -121,10 +158,15 @@ export default function Accounts() {
 
                   {a.accountStatus === 'PendingApproval' && (
                     <>
-                      <button onClick={() => handleAction(a.id, 'approve')} disabled={actioningId === a.id} style={{ padding: '5px 12px', fontSize: 12 }}>
+                      <button
+                        onClick={() => handleAction(a.id, 'approve')}
+                        disabled={busy || !a.staffType}
+                        title={a.staffType ? undefined : 'Set a role first'}
+                        style={{ padding: '5px 12px', fontSize: 12 }}
+                      >
                         Approve
                       </button>
-                      <button onClick={() => handleAction(a.id, 'reject')} disabled={actioningId === a.id} style={{ padding: '5px 12px', fontSize: 12 }}>
+                      <button onClick={() => handleAction(a.id, 'reject')} disabled={busy} style={{ padding: '5px 12px', fontSize: 12 }}>
                         Reject
                       </button>
                     </>
@@ -132,17 +174,17 @@ export default function Accounts() {
 
                   {a.accountStatus === 'Active' && (
                     <>
-                      <button onClick={() => handleAction(a.id, 'disable')} disabled={actioningId === a.id} style={{ padding: '5px 12px', fontSize: 12 }}>
+                      <button onClick={() => handleAction(a.id, 'disable')} disabled={busy} style={{ padding: '5px 12px', fontSize: 12 }}>
                         Disable
                       </button>
-                      <button onClick={() => handlePromote(a.id)} disabled={actioningId === a.id} className="primary" style={{ padding: '5px 12px', fontSize: 12 }}>
+                      <button onClick={() => handlePromote(a.id)} disabled={busy} className="primary" style={{ padding: '5px 12px', fontSize: 12 }}>
                         Promote to Admin
                       </button>
                     </>
                   )}
 
                   {a.accountStatus === 'Disabled' && (
-                    <button onClick={() => handleAction(a.id, 'enable')} disabled={actioningId === a.id} style={{ padding: '5px 12px', fontSize: 12 }}>
+                    <button onClick={() => handleAction(a.id, 'enable')} disabled={busy} style={{ padding: '5px 12px', fontSize: 12 }}>
                       Enable
                     </button>
                   )}

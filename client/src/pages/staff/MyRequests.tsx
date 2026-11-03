@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { apiFetch } from '../../api/client'
-import PhotographerLayout from '../../components/PhotographerLayout'
+import StaffLayout from '../../components/StaffLayout'
+import { RoleBadge } from '../../components/RoleIcon'
 
 interface MatchRequest {
   id: string
   matchId: string
   matchTitle: string
+  matchDate: string
+  matchLocation: string
+  staffType: string
   status: string
   requestedAt: string
 }
@@ -15,6 +19,8 @@ const statusColors: Record<string, { bg: string; text: string }> = {
   Accepted: { bg: '#e8f6ee', text: '#1e8e5a' },
   Rejected: { bg: '#fdeaea', text: '#c0392b' },
   Withdrawn: { bg: '#eee', text: '#666' },
+  Invited: { bg: '#e8f0ff', text: '#1d4ed8' },
+  Declined: { bg: '#eee', text: '#666' },
 }
 
 export default function MyRequests() {
@@ -51,6 +57,36 @@ export default function MyRequests() {
     }
   }
 
+  async function handleConfirm(id: string) {
+    setActioningId(id)
+    try {
+      await apiFetch(`/api/requests/${id}/confirm`, { method: 'PUT' })
+      await loadRequests()
+    } catch (err) {
+      alert(String(err))
+    } finally {
+      setActioningId(null)
+    }
+  }
+
+  async function handleDecline(id: string) {
+    const reason = prompt('Reason for declining (optional):') ?? null
+    // Cancel on the prompt means "never mind"
+    if (reason === null) return
+    setActioningId(id)
+    try {
+      await apiFetch(`/api/requests/${id}/decline`, {
+        method: 'PUT',
+        body: JSON.stringify({ reason: reason || null }),
+      })
+      await loadRequests()
+    } catch (err) {
+      alert(String(err))
+    } finally {
+      setActioningId(null)
+    }
+  }
+
   async function handleCancellationRequest(matchRequestId: string) {
     const reason = prompt('Reason for cancelling (optional):') || undefined
     setActioningId(matchRequestId)
@@ -68,7 +104,7 @@ export default function MyRequests() {
   }
 
   return (
-    <PhotographerLayout>
+    <StaffLayout>
       <h2 style={{ marginTop: 0, marginBottom: 20 }}>My requests</h2>
 
       {loading && <p>Loading...</p>}
@@ -90,9 +126,14 @@ export default function MyRequests() {
                 padding: '14px 16px',
               }}>
                 <div>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{r.matchTitle}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 500 }}>{r.matchTitle}</p>
+                    <RoleBadge type={r.staffType} size={20} />
+                  </div>
                   <p style={{ margin: '4px 0 0', fontSize: 12, color: '#666' }}>
-                    requested {new Date(r.requestedAt).toLocaleDateString()}
+                    {r.status === 'Invited'
+                      ? `appointed by the admin · ${new Date(r.matchDate).toLocaleString()} · ${r.matchLocation}`
+                      : `requested ${new Date(r.requestedAt).toLocaleDateString()}`}
                   </p>
                 </div>
 
@@ -106,6 +147,26 @@ export default function MyRequests() {
                   }}>
                     {r.status}
                   </span>
+
+                  {r.status === 'Invited' && (
+                    <>
+                      <button
+                        className="primary"
+                        onClick={() => handleConfirm(r.id)}
+                        disabled={actioningId === r.id}
+                        style={{ padding: '5px 12px', fontSize: 12 }}
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        onClick={() => handleDecline(r.id)}
+                        disabled={actioningId === r.id}
+                        style={{ padding: '5px 12px', fontSize: 12 }}
+                      >
+                        Decline
+                      </button>
+                    </>
+                  )}
 
                   {r.status === 'Pending' && (
                     <button
@@ -132,6 +193,6 @@ export default function MyRequests() {
           })}
         </div>
       )}
-    </PhotographerLayout>
+    </StaffLayout>
   )
 }

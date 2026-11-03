@@ -20,7 +20,7 @@ public class AccountService : IAccountService
 
     public async Task<List<AccountDto>> GetAllAsync(AccountFilter filter)
     {
-        var query = _db.Users.Where(u => u.Role == UserRole.Photographer).AsQueryable();
+        var query = _db.Users.Where(u => u.Role == UserRole.Staff).AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filter.Status) &&
             Enum.TryParse<AccountStatus>(filter.Status, true, out var status))
@@ -36,6 +36,10 @@ public class AccountService : IAccountService
         if (user is null) return null;
         if (user.AccountStatus != AccountStatus.PendingApproval)
             throw new InvalidOperationException("Only pending accounts can be approved.");
+
+        if (user.Role == UserRole.Staff && user.StaffType is null)
+            throw new InvalidOperationException(
+                "This person hasn't chosen a role yet. Ask them to choose one, or set it for them first.");
 
         user.AccountStatus = AccountStatus.Active;
         await _db.SaveChangesAsync();
@@ -92,16 +96,34 @@ public class AccountService : IAccountService
     {
         var user = await _db.Users.FindAsync(userId);
         if (user is null) return null;
-        if (user.Role != UserRole.Photographer)
-            throw new InvalidOperationException("Only photographers can be promoted to admin.");
+        if (user.Role != UserRole.Staff)
+            throw new InvalidOperationException("Only staff accounts can be promoted to admin.");
         if (user.AccountStatus != AccountStatus.Active)
             throw new InvalidOperationException("Only active accounts can be promoted.");
 
         user.Role = UserRole.Admin;
+        user.StaffType = null; // admins don't have a staff type
         await _db.SaveChangesAsync();
 
         return ToDto(user);
     }
+
+    public async Task<AccountDto?> SetStaffTypeAsync(Guid userId, string staffType)
+    {
+        var user = await _db.Users.FindAsync(userId);
+        if (user is null) return null;
+        if (user.Role != UserRole.Staff)
+            throw new InvalidOperationException("Only staff accounts have a role type.");
+
+        if (!Enum.TryParse<StaffType>(staffType, true, out var type) || !Enum.IsDefined(type))
+            throw new InvalidOperationException("Unknown role type.");
+
+        user.StaffType = type;
+        await _db.SaveChangesAsync();
+
+        return ToDto(user);
+    }
+
     private static AccountDto ToDto(ApplicationUser u) => new()
     {
         Id = u.Id,
@@ -111,6 +133,7 @@ public class AccountService : IAccountService
         PhoneNumber = u.PhoneNumber,
         Bio = u.Bio,
         Role = u.Role.ToString(),
+        StaffType = u.StaffType?.ToString(),
         AccountStatus = u.AccountStatus.ToString(),
         ReliabilityScore = u.ReliabilityScore,
         CreatedAt = u.CreatedAt

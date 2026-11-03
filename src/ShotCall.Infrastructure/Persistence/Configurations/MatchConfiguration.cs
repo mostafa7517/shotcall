@@ -14,11 +14,17 @@ public class MatchConfiguration : IEntityTypeConfiguration<Match>
         builder.Property(m => m.Category).IsRequired().HasMaxLength(50);
         builder.Property(m => m.Location).IsRequired().HasMaxLength(200);
         builder.Property(m => m.Description).HasMaxLength(2000);
+        builder.Property(m => m.HostName).HasMaxLength(150);
 
         builder.HasOne(m => m.CreatedByAdmin)
             .WithMany()
             .HasForeignKey(m => m.CreatedByAdminId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasMany(m => m.Slots)
+            .WithOne(s => s.Match)
+            .HasForeignKey(s => s.MatchId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(m => m.Requests)
             .WithOne(r => r.Match)
@@ -39,8 +45,5 @@ public class MatchConfiguration : IEntityTypeConfiguration<Match>
             .WithOne(p => p.Match)
             .HasForeignKey(p => p.MatchId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        // Computed property, not mapped to a column
-        builder.Ignore(m => m.AcceptedCount);
     }
 }

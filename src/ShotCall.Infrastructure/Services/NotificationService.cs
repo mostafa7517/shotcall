@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.SignalR;
+using System.Net;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using ShotCall.Application.DTOs;
 using ShotCall.Application.Interfaces;
 using ShotCall.Domain.Entities;
@@ -11,15 +13,23 @@ namespace ShotCall.Infrastructure.Services;
 
 public class NotificationService : INotificationService
 {
+    private const int MaxMessageLength = 500; // matches the database column
+
     private readonly AppDbContext _db;
     private readonly IHubContext<NotificationHub> _hub;
     private readonly IEmailService _emailService;
+    private readonly ILogger<NotificationService> _logger;
 
-    public NotificationService(AppDbContext db, IHubContext<NotificationHub> hub, IEmailService emailService)
+    public NotificationService(
+        AppDbContext db,
+        IHubContext<NotificationHub> hub,
+        IEmailService emailService,
+        ILogger<NotificationService> logger)
     {
         _db = db;
         _hub = hub;
         _emailService = emailService;
+        _logger = logger;
     }
 
     public async Task<List<NotificationDto>> GetForUserAsync(Guid userId)
@@ -50,8 +60,14 @@ public class NotificationService : INotificationService
         return true;
     }
 
-    public async Task CreateAsync(Guid userId, NotificationType type, string message)
+    public Task CreateAsync(Guid userId, NotificationType type, string message) =>
+        CreateAsync(userId, type, message, "ShotCall Notification", $"<p>{WebUtility.HtmlEncode(message)}</p>");
+
+    public async Task CreateAsync(Guid userId, NotificationType type, string message, string emailSubject, string emailBodyHtml)
     {
+        if (message.Length > MaxMessageLength)
+            message = message[..(MaxMessageLength - 3)] + "...";
+
         var notification = new Notification
         {
             Id = Guid.NewGuid(),
@@ -75,11 +91,18 @@ public class NotificationService : INotificationService
             CreatedAt = notification.CreatedAt
         });
 
-        // Also send an email as an addition to the in-app notification (not a replacement)
-        var user = await _db.Users.FindAsync(userId);
-        if (user is not null)
+        // Also send an email as an addition to the in-app notification (not a replacement).
+        // A mail problem (Gmail not connected, token revoked...) must never break the action
+        // that triggered the notification, so it is only logged.
+        try
         {
-            await _emailService.SendAsync(user.Email, "ShotCall Notification", $"<p>{message}</p>");
+            var user = await _db.Users.FindAsync(userId);
+            if (user is not null)
+                await _emailService.SendAsync(user.Email, emailSubject, emailBodyHtml);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not send the email for notification {NotificationId}", notification.Id);
         }
     }
 }

@@ -12,6 +12,9 @@ public class MatchRequest
     public Guid PhotographerId { get; set; }
     public ApplicationUser Photographer { get; set; } = null!;
 
+    // The role the person applied as (copied from their profile when they request)
+    public StaffType StaffType { get; set; }
+
     public RequestStatus Status { get; set; } = RequestStatus.Pending;
 
     public DateTime RequestedAt { get; set; } = DateTime.UtcNow;

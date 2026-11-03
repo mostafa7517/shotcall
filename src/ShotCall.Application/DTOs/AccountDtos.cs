@@ -9,6 +9,7 @@ public class AccountDto
     public string? PhoneNumber { get; set; }
     public string? Bio { get; set; }
     public string Role { get; set; } = string.Empty;
+    public string? StaffType { get; set; }
     public string AccountStatus { get; set; } = string.Empty;
     public int ReliabilityScore { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -17,4 +18,9 @@ public class AccountDto
 public class AccountFilter
 {
     public string? Status { get; set; } // "PendingApproval" / "Active" / "Rejected" / "Disabled"
+}
+
+public class SetStaffTypeRequest
+{
+    public string StaffType { get; set; } = string.Empty;
 }

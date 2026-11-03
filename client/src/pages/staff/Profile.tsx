@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '../../api/client'
-import PhotographerLayout from '../../components/PhotographerLayout'
+import { useAuth } from '../../context/AuthContext'
+import StaffLayout from '../../components/StaffLayout'
+import StaffTypePicker from '../../components/StaffTypePicker'
+import { RoleBadge } from '../../components/RoleIcon'
 
 interface Profile {
   fullName: string
@@ -9,14 +12,18 @@ interface Profile {
   phoneNumber: string | null
   bio: string | null
   reliabilityScore: number
+  staffType: string | null
+  canChangeStaffType: boolean
 }
 
 export default function Profile() {
+  const { updateUser } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [phoneNumber, setPhoneNumber] = useState('')
   const [bio, setBio] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingRole, setSavingRole] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
@@ -51,13 +58,30 @@ export default function Profile() {
     }
   }
 
-  if (loading) return <PhotographerLayout><p>Loading...</p></PhotographerLayout>
-  if (!profile) return <PhotographerLayout><p style={{ color: 'var(--danger-text)' }}>{error}</p></PhotographerLayout>
+  async function handleChooseRole(value: string) {
+    setSavingRole(true)
+    setError(null)
+    try {
+      const updated: Profile = await apiFetch('/api/profile/staff-type', {
+        method: 'PUT',
+        body: JSON.stringify({ staffType: value }),
+      })
+      setProfile(updated)
+      updateUser({ staffType: updated.staffType })
+    } catch (err) {
+      setError(String(err))
+    } finally {
+      setSavingRole(false)
+    }
+  }
+
+  if (loading) return <StaffLayout><p>Loading...</p></StaffLayout>
+  if (!profile) return <StaffLayout><p style={{ color: 'var(--danger-text)' }}>{error}</p></StaffLayout>
 
   const isIncomplete = !profile.phoneNumber || !profile.bio
 
   return (
-    <PhotographerLayout>
+    <StaffLayout>
       <h2 style={{ marginBottom: 20 }}>Profile</h2>
 
       {isIncomplete && (
@@ -86,13 +110,25 @@ export default function Profile() {
           )}
           <div>
             <p style={{ margin: 0, fontWeight: 600 }}>{profile.fullName}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>{profile.email}</p>
+            <p style={{ margin: '2px 0 6px', fontSize: 13, color: 'var(--text-muted)' }}>{profile.email}</p>
+            <RoleBadge type={profile.staffType} />
           </div>
         </div>
 
         <div style={{ marginBottom: 20, fontSize: 13, color: 'var(--text-muted)' }}>
           Reliability score: <strong style={{ color: 'var(--text)' }}>{profile.reliabilityScore}</strong>
         </div>
+
+        {profile.canChangeStaffType ? (
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, margin: '0 0 8px' }}>Choose your role</p>
+            <StaffTypePicker value={profile.staffType} onChange={handleChooseRole} disabled={savingRole} />
+          </div>
+        ) : (
+          <p style={{ marginBottom: 20, fontSize: 12, color: 'var(--text-muted)' }}>
+            Your role is fixed. Ask an admin if it needs to change.
+          </p>
+        )}
 
         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <label style={{ fontSize: 13, fontWeight: 500 }}>
@@ -124,6 +160,6 @@ export default function Profile() {
           </button>
         </form>
       </div>
-    </PhotographerLayout>
+    </StaffLayout>
   )
 }

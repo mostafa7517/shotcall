@@ -33,7 +33,7 @@ public class MatchRequestsController : ApiControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Photographer")]
+    [Authorize(Roles = "Staff")]
     public async Task<ActionResult<MatchRequestDto>> Create([FromBody] CreateMatchRequestDto request)
     {
         try
@@ -48,7 +48,7 @@ public class MatchRequestsController : ApiControllerBase
     }
 
     [HttpPut("{id:guid}/withdraw")]
-    [Authorize(Roles = "Photographer")]
+    [Authorize(Roles = "Staff")]
     public async Task<ActionResult<MatchRequestDto>> Withdraw(Guid id)
     {
         try
@@ -84,6 +84,85 @@ public class MatchRequestsController : ApiControllerBase
         try
         {
             var result = await _requestService.RejectAsync(id);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    // ----- Manual appointments -----
+
+    // GET /api/matches/{matchId}/candidates - people the admin can appoint for this match
+    [HttpGet("~/api/matches/{matchId:guid}/candidates")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<List<AssignCandidateDto>>> GetCandidates(Guid matchId)
+    {
+        try
+        {
+            var candidates = await _requestService.GetCandidatesAsync(matchId);
+            return Ok(candidates);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    // POST /api/matches/{matchId}/invitations - appoint people; they get a notification + email and must confirm
+    [HttpPost("~/api/matches/{matchId:guid}/invitations")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<List<MatchRequestDto>>> Invite(Guid matchId, [FromBody] InviteStaffRequest request)
+    {
+        try
+        {
+            var created = await _requestService.InviteAsync(matchId, request.UserIds);
+            return Ok(created);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("{id:guid}/revoke")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<MatchRequestDto>> Revoke(Guid id)
+    {
+        try
+        {
+            var result = await _requestService.RevokeInvitationAsync(id);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("{id:guid}/confirm")]
+    [Authorize(Roles = "Staff")]
+    public async Task<ActionResult<MatchRequestDto>> Confirm(Guid id)
+    {
+        try
+        {
+            var result = await _requestService.ConfirmInvitationAsync(id, CurrentUserId);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPut("{id:guid}/decline")]
+    [Authorize(Roles = "Staff")]
+    public async Task<ActionResult<MatchRequestDto>> Decline(Guid id, [FromBody] DeclineInvitationRequest? request)
+    {
+        try
+        {
+            var result = await _requestService.DeclineInvitationAsync(id, CurrentUserId, request?.Reason);
             return result is null ? NotFound() : Ok(result);
         }
         catch (InvalidOperationException ex)

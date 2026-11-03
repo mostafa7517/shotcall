@@ -9,9 +9,9 @@ import Calendar from './pages/admin/Calendar'
 import Requests from './pages/admin/Requests'
 import Accounts from './pages/admin/Accounts'
 import Cancellations from './pages/admin/Cancellations'
-import PhotographerMatches from './pages/photographer/Matches'
-import MyRequests from './pages/photographer/MyRequests'
-import Profile from './pages/photographer/Profile'
+import StaffMatches from './pages/staff/Matches'
+import MyRequests from './pages/staff/MyRequests'
+import Profile from './pages/staff/Profile'
 
 function HomeRedirect() {
   const { user } = useAuth()
@@ -42,8 +42,8 @@ function App() {
             <Route path="/admin/cancellations" element={<Cancellations />} />
           </Route>
 
-          <Route element={<ProtectedRoute allowedRoles={['Photographer']} />}>
-            <Route path="/matches" element={<PhotographerMatches />} />
+          <Route element={<ProtectedRoute allowedRoles={['Staff']} />}>
+            <Route path="/matches" element={<StaffMatches />} />
             <Route path="/my-requests" element={<MyRequests />} />
             <Route path="/profile" element={<Profile />} />
           </Route>

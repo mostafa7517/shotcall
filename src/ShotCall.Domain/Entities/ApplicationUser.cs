@@ -14,9 +14,14 @@ public class ApplicationUser
     // Filled in later by the user, all optional
     public string? PhoneNumber { get; set; }
     public string? Bio { get; set; }
-    public string? PortfolioLinksJson { get; set; } // stored as JSON array of strings
+    public string? PortfolioLinksJson { get; set; }
 
+    // Access level (Admin / Staff)
     public UserRole Role { get; set; }
+
+    // What the person does (Photographer / Journalist / Tv). Null until chosen, and always null for admins.
+    public StaffType? StaffType { get; set; }
+
     public AccountStatus AccountStatus { get; set; } = AccountStatus.PendingApproval;
 
     public int ReliabilityScore { get; set; } = 100;

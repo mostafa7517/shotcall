@@ -37,16 +37,30 @@ public class MatchesController : ApiControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<MatchDto>> Create([FromBody] CreateMatchRequest request)
     {
-        var created = await _matchService.CreateAsync(request, CurrentUserId);
-        return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        try
+        {
+            var created = await _matchService.CreateAsync(request, CurrentUserId);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPut("{id:guid}")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<MatchDto>> Update(Guid id, [FromBody] UpdateMatchRequest request)
     {
-        var updated = await _matchService.UpdateAsync(id, request);
-        return updated is null ? NotFound() : Ok(updated);
+        try
+        {
+            var updated = await _matchService.UpdateAsync(id, request);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpDelete("{id:guid}")]

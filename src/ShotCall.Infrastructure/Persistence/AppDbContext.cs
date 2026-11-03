@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<ApplicationUser> Users => Set<ApplicationUser>();
     public DbSet<Availability> Availabilities => Set<Availability>();
     public DbSet<Match> Matches => Set<Match>();
+    public DbSet<MatchSlot> MatchSlots => Set<MatchSlot>();
     public DbSet<MatchRequest> MatchRequests => Set<MatchRequest>();
     public DbSet<CancellationRequest> CancellationRequests => Set<CancellationRequest>();
     public DbSet<WaitingListEntry> WaitingListEntries => Set<WaitingListEntry>();
@@ -21,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<GmailAuthorization> GmailAuthorizations => Set<GmailAuthorization>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
